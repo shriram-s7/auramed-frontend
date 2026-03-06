@@ -55,18 +55,17 @@ export default function Cervical() {
             formData.append("file", file);
 
             const response = await axios.post(
-                "https://bnlmyh19gb.execute-api.eu-north-1.amazonaws.com/predict/cervical",
+                "https://dle4nmrf06.execute-api.eu-north-1.amazonaws.com/predict/cervical",
                 formData
             );
 
-            const prediction = response.data.prediction;
-            setResult(prediction);
+            setResult(response.data);
 
             if (patientData) {
                 const record = {
                     ...patientData,
                     disease: "Cervical Cancer",
-                    result: prediction
+                    result: response.data.prediction
                 };
 
                 const existingHistory = JSON.parse(localStorage.getItem("patientHistory") || "[]");
@@ -126,7 +125,7 @@ export default function Cervical() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginBottom: "2rem" }}>
-                <div className="card" style={{ 
+                <div className="card" style={{
                     backgroundColor: "#fef2f2",
                     border: "2px solid var(--danger)",
                     minHeight: "300px"
@@ -135,9 +134,9 @@ export default function Cervical() {
                         Image Output
                     </h3>
                     {preview ? (
-                        <div style={{ 
-                            width: "100%", 
-                            display: "flex", 
+                        <div style={{
+                            width: "100%",
+                            display: "flex",
                             justifyContent: "center",
                             padding: "1rem",
                             backgroundColor: "#fff",
@@ -150,22 +149,22 @@ export default function Cervical() {
                             />
                         </div>
                     ) : (
-                        <div style={{ 
-                            width: "100%", 
-                            height: "200px", 
-                            border: "2px dashed var(--border-color)", 
-                            borderRadius: "var(--radius-md)", 
-                            display: "flex", 
-                            alignItems: "center", 
-                            justifyContent: "center", 
-                            color: "var(--text-muted)" 
+                        <div style={{
+                            width: "100%",
+                            height: "200px",
+                            border: "2px dashed var(--border-color)",
+                            borderRadius: "var(--radius-md)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "var(--text-muted)"
                         }}>
                             No image uploaded
                         </div>
                     )}
                 </div>
 
-                <div className="card" style={{ 
+                <div className="card" style={{
                     backgroundColor: "#fef2f2",
                     border: "2px solid var(--danger)",
                     minHeight: "300px"
@@ -191,16 +190,19 @@ export default function Cervical() {
                     ) : result ? (
                         <div style={{ padding: "1rem" }}>
                             <p style={{ fontSize: "1rem", color: "var(--text-muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                Prediction
+                                Prediction: {result.prediction}
                             </p>
                             <div style={{
                                 fontSize: "2rem",
                                 fontWeight: "700",
-                                color: result === 'Normal' ? 'var(--success)' : 
-                                       result === 'Dysplastic' ? 'var(--danger)' : 'var(--warning)'
+                                color: result.prediction === 'Normal' ? 'var(--success)' :
+                                    result.prediction === 'Dysplastic' ? 'var(--danger)' : 'var(--warning)'
                             }}>
-                                {result}
+                                {result.prediction}
                             </div>
+                            <p style={{ fontSize: "1rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                                Confidence: {(result.confidence * 100).toFixed(2)}%
+                            </p>
                         </div>
                     ) : (
                         <div style={{ color: "var(--text-muted)", padding: "2rem", textAlign: "center" }}>
@@ -228,8 +230,8 @@ export default function Cervical() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
-                <button 
-                    className="btn btn-primary" 
+                <button
+                    className="btn btn-primary"
                     onClick={runAnalysis}
                     disabled={loading || !file}
                     style={{ marginRight: "auto" }}

@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function PCOS() {
     const navigate = useNavigate();
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
+    const [result, setResult] = useState(null);
+    const [loading, setLoading] = useState(false);
     const [patientData, setPatientData] = useState(null);
     const [pcosData, setPcosData] = useState({
         lh: "",
@@ -43,9 +46,9 @@ export default function PCOS() {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setPcosData(prev => ({ 
-            ...prev, 
-            [name]: type === "checkbox" ? checked : value 
+        setPcosData(prev => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value
         }));
     };
 
@@ -61,6 +64,61 @@ export default function PCOS() {
             const existingHistory = JSON.parse(localStorage.getItem("patientHistory") || "[]");
             localStorage.setItem("patientHistory", JSON.stringify([...existingHistory, record]));
             alert("Patient data saved successfully!");
+        }
+    };
+
+    const runAnalysis = async () => {
+        if (!file) {
+            alert("Please upload an ultrasound image first.");
+            return;
+        }
+
+        setLoading(true);
+        setResult(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("age", patientData?.age || 30);
+
+            const h = parseFloat(pcosData.height) || 160;
+            const b = parseFloat(pcosData.bmi) || 25;
+            const heightInMeters = h / 100;
+            const weight = b * (heightInMeters * heightInMeters);
+
+            formData.append("weight", weight.toFixed(2));
+            formData.append("height", h);
+            formData.append("lh", pcosData.lh || 0);
+            formData.append("fsh", pcosData.fsh || 1);
+            formData.append("amh", pcosData.amh || 0);
+            formData.append("bmi", b);
+
+            const lh = parseFloat(pcosData.lh) || 0;
+            const fsh = parseFloat(pcosData.fsh) || 1;
+            const ratio = (lh / fsh).toFixed(2);
+            formData.append("lh_fsh_ratio", isNaN(ratio) || !isFinite(ratio) ? 1.0 : ratio);
+
+            const response = await axios.post(
+                "https://dle4nmrf06.execute-api.eu-north-1.amazonaws.com/predict/pcos",
+                formData
+            );
+
+            setResult(response.data);
+
+            if (patientData) {
+                const record = {
+                    ...patientData,
+                    disease: "PCOS",
+                    result: response.data.prediction
+                };
+                const existingHistory = JSON.parse(localStorage.getItem("patientHistory") || "[]");
+                localStorage.setItem("patientHistory", JSON.stringify([...existingHistory, record]));
+            }
+        } catch (error) {
+            console.error("Analysis Failed", error);
+            alert("Analysis Failed. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -186,7 +244,7 @@ export default function PCOS() {
                         />
                     </div>
 
-                    <div className="card" style={{ 
+                    <div className="card" style={{
                         backgroundColor: "#fef2f2",
                         border: "2px solid var(--danger)",
                         minHeight: "250px",
@@ -196,9 +254,9 @@ export default function PCOS() {
                             Image Output
                         </h3>
                         {preview ? (
-                            <div style={{ 
-                                width: "100%", 
-                                display: "flex", 
+                            <div style={{
+                                width: "100%",
+                                display: "flex",
                                 justifyContent: "center",
                                 padding: "1rem",
                                 backgroundColor: "#fff",
@@ -211,22 +269,22 @@ export default function PCOS() {
                                 />
                             </div>
                         ) : (
-                            <div style={{ 
-                                width: "100%", 
-                                height: "150px", 
-                                border: "2px dashed var(--border-color)", 
-                                borderRadius: "var(--radius-md)", 
-                                display: "flex", 
-                                alignItems: "center", 
-                                justifyContent: "center", 
-                                color: "var(--text-muted)" 
+                            <div style={{
+                                width: "100%",
+                                height: "150px",
+                                border: "2px dashed var(--border-color)",
+                                borderRadius: "var(--radius-md)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "var(--text-muted)"
                             }}>
                                 No image uploaded
                             </div>
                         )}
                     </div>
 
-                    <div className="card" style={{ 
+                    <div className="card" style={{
                         backgroundColor: "#fef2f2",
                         border: "2px solid var(--danger)",
                         minHeight: "120px"
@@ -234,14 +292,53 @@ export default function PCOS() {
                         <h3 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
                             Prediction Description
                         </h3>
-                        <p style={{ color: "var(--text-muted)" }}>
-                            Run analysis to view prediction results
-                        </p>
+                        {loading ? (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1rem" }}>
+                                <div style={{
+                                    width: "30px",
+                                    height: "30px",
+                                    border: "3px solid var(--border-color)",
+                                    borderTop: "3px solid var(--danger)",
+                                    borderRadius: "50%",
+                                    animation: "spin 1s linear infinite"
+                                }} />
+                                <p style={{ color: "var(--text-muted)", fontWeight: 500 }}>Running AI Analysis...</p>
+                                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                            </div>
+                        ) : result ? (
+                            <div style={{ padding: "1rem 0" }}>
+                                <p style={{ fontSize: "1rem", color: "var(--text-muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    Prediction: {result.prediction}
+                                </p>
+                                <div style={{
+                                    fontSize: "2rem",
+                                    fontWeight: "700",
+                                    color: result.prediction.includes('POSITIVE') ? 'var(--danger)' : 'var(--success)'
+                                }}>
+                                    {result.prediction}
+                                </div>
+                                <p style={{ fontSize: "1rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                                    Confidence: {(result.confidence * 100).toFixed(2)}%
+                                </p>
+                            </div>
+                        ) : (
+                            <p style={{ color: "var(--text-muted)" }}>
+                                Run analysis to view prediction results
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+                <button
+                    className="btn btn-primary"
+                    onClick={runAnalysis}
+                    disabled={loading || !file}
+                    style={{ marginRight: "auto" }}
+                >
+                    {loading ? "Processing..." : "Run AI Analysis"}
+                </button>
                 <button className="btn btn-secondary" onClick={() => navigate("/dashboard")}>
                     Back to Dashboard
                 </button>
