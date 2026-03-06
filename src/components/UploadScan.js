@@ -12,7 +12,7 @@ export default function UploadScan(){
     formData.append("file",file);
 
     const response = await axios.post(
-      "http://13.51.166.139:8000/predict/cervical",
+      "https://bnlmyh19gb.execute-api.eu-north-1.amazonaws.com/predict/cervical",
       formData
     );
 
